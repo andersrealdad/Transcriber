@@ -11,6 +11,8 @@ Complete audio transcription and PDF OCR system with AI denoising and Ollama-pow
 - ✅ **Multi-pass transcription** for difficult audio (NEW! 🔥)
 - ✅ **LLM-powered merge** - AI picks best text from multiple passes
 - ✅ **Ollama integration** for intelligent summaries
+- ✅ **Dual-language summaries** (Norwegian + English) (NEW! 🔥)
+- ✅ **Self-contained HTML indexes** with audio players (NEW! 🔥)
 - ✅ **Nested folder support** - "fire and forget" batch processing
 - ✅ **OCR for PDFs** with Norwegian + English support
 - ✅ **Auto language detection** (Norwegian/English/90+ languages)
@@ -66,6 +68,38 @@ ls input/
 # your_audio.txt  (transcription with timestamps)
 # your_audio.md   (AI summary)
 # your_document.txt (OCR result)
+```
+
+---
+
+## 🌐 New HTML Interface
+
+### Self-Contained Web Interface
+```
+📁 Project Folder
+├── index.html              # STENOGRAFEN web interface
+├── transcript.txt           # Original transcription
+├── summary_no.md           # Norwegian summary
+├── summary_en.md           # English summary
+└── audio_file.mp3          # Original audio (linked)
+```
+
+### Features
+- **ASCII Art Header** - Retro "STENOGRAFEN" branding
+- **Audio Players** - Built-in HTML5 audio controls
+- **Language Toggle** - Switch between Norwegian/English summaries
+- **Responsive Design** - Works on desktop and mobile
+- **Dark Theme** - Easy on the eyes for long reading sessions
+- **Contact Footer** - Your contact info automatically included
+
+### Access Your Results
+```bash
+# After processing, open any folder's index.html
+firefox output/project_name/index.html
+
+# Or serve locally
+python -m http.server 8000
+# Then visit: http://localhost:8000/output/
 ```
 
 ---
@@ -157,6 +191,37 @@ audio:
   ai_denoise:
     enabled: false
   enhance: true
+```
+
+### Dual-Language Summaries
+
+**Automatic Detection** (Recommended)
+```yaml
+ollama:
+  summary:
+    dual_language:
+      enabled: true
+      primary: null      # Auto-detect from transcription
+      secondary: "en"    # Always generate English
+```
+
+**Force Specific Languages**
+```yaml
+ollama:
+  summary:
+    dual_language:
+      enabled: true
+      force_primary_language: "no"  # Force Norwegian primary
+      secondary: "en"               # English secondary
+```
+
+**HTML Generation**
+```yaml
+output:
+  html:
+    enabled: true
+    template_style: "stenografen"
+    include_audio_player: true
 ```
 
 ### Ollama Models
@@ -308,6 +373,43 @@ whisper:
   model_size: "medium"
 ```
 
+### Workflow 5: Dual-Language Documentation
+```yaml
+# Perfect for Norwegian content that needs English summaries
+ollama:
+  summary:
+    dual_language:
+      enabled: true
+      primary: null      # Auto-detect
+      secondary: "en"    # Always English summary
+
+output:
+  html:
+    enabled: true        # Generate web interface
+```
+
+Output:
+- `meeting.txt` - Norwegian transcription
+- `meeting_no.md` - Norwegian summary  
+- `meeting_en.md` - English summary
+- `index.html` - Web interface with audio player
+
+### Workflow 6: Complete Web Documentation
+```bash
+# Process entire project with web interface
+cp -r project_audio/* input/
+./run_transcribe.sh
+
+# Get complete web-ready documentation
+firefox output/index.html
+```
+
+Features:
+- Folder-by-folder HTML indexes
+- Audio players for each file
+- Language-specific summaries
+- Mobile-responsive design
+
 ---
 
 ## 🔧 Troubleshooting
@@ -396,10 +498,14 @@ whisper:
 - ✅ **Better quality** (latest models, customizable)
 - ✅ **No file size limits**
 - ✅ **Offline capable**
+- ✅ **Dual-language summaries** (not available elsewhere)
+- ✅ **Self-contained web interface** (no external dependencies)
 
 ### vs. Basic Whisper Scripts
 - ✅ **AI-powered denoising** (not just FFmpeg)
 - ✅ **Intelligent summaries** (Ollama integration)
+- ✅ **Dual-language support** (automatic translation)
+- ✅ **Web interface generation** (professional presentation)
 - ✅ **Complete pipeline** (audio + PDF)
 - ✅ **Production-ready** (error handling, logging)
 - ✅ **Easy configuration** (no code changes needed)
