@@ -3,6 +3,25 @@ folders:
   input: "./input"
   output: ""  # Leave empty to output in same folder as source file
 
+# Output Configuration
+output:
+  # Media folder for audio files (relative to output folder)
+  media_folder: "../media"
+  # HTML generation
+  html:
+    enabled: true
+    template_style: "stenografen"
+    generate_index: true
+    include_audio_player: true
+  # Preserve existing structure setting
+  preserve_structure: true
+
+# Contact info for HTML footer
+contact:
+  name: "Anders Iversen"
+  phone: "+47 97 41 75 26"
+  github: "andersrealdad"
+
 # Faster Whisper Settings
 whisper:
   model_size: "large-v3"  # Options: tiny, base, small, medium, large-v2, large-v3
@@ -79,6 +98,12 @@ ollama:
     extract_topics: true
     # Language for summary (null = same as audio, or specify: "en", "no")
     language: null
+    # Dual-language summary generation
+    dual_language:
+      enabled: true
+      primary: null      # null = auto-detect from transcription
+      secondary: "en"    # Always generate English summary
+      force_primary_language: null  # null=auto, "no"=force Norwegian, "en"=force English
   # Process in separate step (won't block transcription if Ollama is busy)
   async_processing: true
 
@@ -100,8 +125,6 @@ processing:
   skip_existing: true
   # Recursive folder search (handles nested folders!)
   recursive: true
-  # Preserve folder structure in output
-  preserve_structure: true
   # Number of parallel OCR tasks (transcription always uses 1 GPU task at a time)
   ocr_threads: 2
   # Log level: "DEBUG", "INFO", "WARNING", "ERROR"
