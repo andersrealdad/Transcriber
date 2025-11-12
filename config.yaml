@@ -1,0 +1,120 @@
+# Transcription Configuration
+folders:
+  input: "./input"
+  output: ""  # Leave empty to output in same folder as source file
+
+# Faster Whisper Settings
+whisper:
+  model_size: "large-v3"  # Options: tiny, base, small, medium, large-v2, large-v3
+  device: "cuda"  # Use GPU (RTX 3080)
+  compute_type: "float16"  # Options: float16, int8 (float16 recommended for RTX 3080)
+  language: null  # Set to null for auto-detection, or specify: "en", "no", "es", "fr", etc.
+  beam_size: 5  # Higher = more accurate but slower (1-10)
+  vad_filter: true  # Voice Activity Detection - removes silence
+  vad_parameters:
+    threshold: 0.5
+    min_speech_duration_ms: 250
+    min_silence_duration_ms: 2000
+
+# Audio Processing
+audio:
+  # Supported formats
+  formats: ["mp3", "wav", "m4a", "flac", "ogg", "opus", "webm", "aac"]
+  
+  # Audio enhancement pipeline (processed in order)
+  enhance: true
+  
+  # AI-based denoising (more powerful than FFmpeg filters)
+  ai_denoise:
+    enabled: true
+    # Try denoising methods in order: "demucs", "deepfilternet", "both"
+    # "both" will try demucs first, if still noisy, apply deepfilternet
+    method: "demucs"  # Options: "demucs", "deepfilternet", "both", "none"
+    # Demucs options
+    demucs:
+      model: "htdemucs"
+      extract: "vocals"  # Extract vocals only for speech
+    # DeepFilterNet options (NVIDIA-style noise suppression)
+    deepfilternet:
+      attenuation_limit: 100  # dB reduction (6-100, higher = more aggressive)
+  
+  # Standard FFmpeg enhancement filters (applied after AI denoising)
+  enhancement_filters:
+    # Noise reduction (0.0-1.0, higher = more aggressive)
+    noise_reduction: 0.15  # Reduced since AI denoising handles most
+    # High-pass filter to remove low frequency rumble (Hz)
+    highpass: 200
+    # Normalize audio levels
+    normalize: true
+
+# Transcription Output
+transcription:
+  # Output format: "txt", "srt", "vtt", "json", "all"
+  format: "txt"
+  # Include timestamps in txt format
+  timestamps: true
+  # Timestamp format for txt: "seconds" or "timecode" [HH:MM:SS]
+  timestamp_format: "timecode"
+  # Word-level timestamps (more detailed, larger files)
+  word_timestamps: false
+  # Include detected language tag in output
+  language_tag: true
+
+# Ollama Summarization
+ollama:
+  enabled: true
+  # Ollama API endpoint
+  api_url: "http://localhost:11434"
+  # Model to use for summarization (will list available models if not found)
+  model: "qwen2.5:7b" # Popular options: llama3.2, mistral, gemma2, qwen2.5
+  # Generate markdown summary
+  generate_summary: true
+  # Summary settings
+  summary:
+    # Max length of summary (words)
+    max_length: 500
+    # Summary style: "concise", "detailed", "bullet_points"
+    style: "detailed"
+    # Include key topics/themes
+    extract_topics: true
+    # Language for summary (null = same as audio, or specify: "en", "no")
+    language: null
+  # Process in separate step (won't block transcription if Ollama is busy)
+  async_processing: true
+
+# OCR Settings
+ocr:
+  enabled: true
+  # Output format: "txt", "md" (markdown), "json"
+  output_format: "txt"
+  # OCR engine: "tesseract" (recommended)
+  engine: "tesseract"
+  # Language for OCR (can be multiple: "eng+nor" for both English and Norwegian)
+  language: "eng+nor"  # eng, nor, deu, fra, spa, etc.
+  # DPI for PDF rendering (higher = better quality, slower)
+  dpi: 300
+
+# Processing Options
+processing:
+  # Skip files if output already exists
+  skip_existing: true
+  # Recursive folder search (handles nested folders!)
+  recursive: true
+  # Preserve folder structure in output
+  preserve_structure: true
+  # Number of parallel OCR tasks (transcription always uses 1 GPU task at a time)
+  ocr_threads: 2
+  # Log level: "DEBUG", "INFO", "WARNING", "ERROR"
+  log_level: "INFO"
+
+# Multi-Pass Transcription (for difficult audio)
+multi_pass:
+  enabled: false  # Set to true for challenging audio
+  # Strategies to try: "demucs", "deepfilternet", "both", "none"
+  strategies: ["none", "demucs", "deepfilternet", "both"]
+  # Use LLM to combine best parts from each transcription
+  llm_merge: true
+  # Keep all individual transcriptions (for comparison)
+  keep_individual: true
+  # Confidence threshold for merging (0.0-1.0)
+  merge_threshold: 0.7
