@@ -1120,7 +1120,7 @@ Summary:"""
         """Generate HTML content for folder index"""
         
         # ASCII art header
-        ascii_header = """
+        ascii_header = r"""
    _____ _______ ______ _   _  ____   _____ _____            ______ ______ _   _ 
   / ____|__   __|  ____| \ | |/ __ \ / ____|  __ \     /\   |  ____|  ____| \ | |
  | (___    | |  | |__  |  \| | |  | | |  __| |__) |   /  \  | |__  | |__  |  \| |
