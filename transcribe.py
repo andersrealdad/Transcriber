@@ -1131,8 +1131,9 @@ Summary:"""
         
         folder_name = folder_path.name if folder_path != base_output else "Root"
         
-        # Contact info
+        # Contact info with Bitcoin tagline
         contact = self.config.get('contact', {})
+        bitcoin_logo = "₿"  # Unicode Bitcoin symbol
         contact_info = f"""
         <div class="contact">
             <strong>{contact.get('name', 'Anders Iversen')}</strong><br>
@@ -1140,6 +1141,10 @@ Summary:"""
             🐙 <a href="https://github.com/{contact.get('github', 'andersrealdad')}" target="_blank">
                 github.com/{contact.get('github', 'andersrealdad')}
             </a>
+        </div>
+        <div class="crypto-tagline">
+            <div>Transkripsjonen gjort kryptert med SHA-256</div>
+            <div>Stenografen sikkert som bitcoin {bitcoin_logo}</div>
         </div>
         """
         
@@ -1293,6 +1298,19 @@ Summary:"""
         .timestamp {{
             color: #666;
             font-size: 11px;
+        }}
+        
+        .crypto-tagline {{
+            margin-top: 15px;
+            color: #00ff00;
+            font-size: 11px;
+            text-align: center;
+            font-weight: bold;
+            text-shadow: 0 0 3px #00ff00;
+        }}
+        
+        .crypto-tagline div {{
+            margin: 2px 0;
         }}
         
         @media (max-width: 768px) {{
