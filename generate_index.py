@@ -835,7 +835,7 @@ class HTMLIndexGenerator:
             }});
             
             // Escape special regex characters
-            const escapedQuery = query.replace(/[.*+?^${{}}()|[\\]\\\\]/g, '\\\\$&');
+            const escapedQuery = query.replace(/[.*+?^${{}}()|[\\\\]\\\\]/g, '\\\\\\\\$&');
             const regex = new RegExp(`(${{escapedQuery}})`, 'gi');
             
             let matchCount = 0;
