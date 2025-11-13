@@ -1030,94 +1030,77 @@ Summary:"""
     def generate_html_index(self):
         """Generate HTML index files for processed content"""
         try:
-            self.logger.info("Generating HTML index files...")
+            self.logger.info("Generating HTML files...")
             
             # Determine base output folder
             base_output = self.output_folder if self.output_folder else self.input_folder
             
-            # Process each folder recursively
-            self._generate_folder_index(base_output, base_output)
+            # Generate individual HTML files for each processed audio
+            self._generate_individual_html_files(base_output)
             
-            self.logger.info("HTML index generation complete!")
+            # Generate main index (hovedindex.html)
+            self._generate_main_index(base_output)
+            
+            self.logger.info("HTML generation complete!")
             
         except Exception as e:
-            self.logger.error(f"HTML index generation failed: {e}")
+            self.logger.error(f"HTML generation failed: {e}")
 
-    def _generate_folder_index(self, folder_path: Path, base_output: Path):
-        """Generate index.html for a specific folder"""
+    def _generate_individual_html_files(self, base_output: Path):
+        """Generate individual HTML files for each audio file"""
         try:
-            # Find all processed files in this folder
-            transcripts = list(folder_path.glob("*.txt"))
-            summaries = list(folder_path.glob("*.md"))
-            
-            if not transcripts and not summaries:
-                # Check subfolders
-                for subfolder in folder_path.iterdir():
-                    if subfolder.is_dir():
-                        self._generate_folder_index(subfolder, base_output)
-                return
-            
-            # Group files by stem name
-            file_groups = {}
-            
-            for txt_file in transcripts:
+            # Find all processed files recursively
+            for txt_file in base_output.rglob("*.txt"):
                 stem = txt_file.stem
-                if stem not in file_groups:
-                    file_groups[stem] = {'transcript': None, 'summaries': [], 'audio': None}
-                file_groups[stem]['transcript'] = txt_file
-            
-            for md_file in summaries:
-                # Handle dual-language summaries (filename_en.md, filename_no.md)
-                if md_file.stem.endswith('_en') or md_file.stem.endswith('_no'):
-                    base_stem = md_file.stem[:-3]  # Remove _en or _no
-                    lang_code = md_file.stem[-2:]
-                else:
-                    base_stem = md_file.stem
-                    lang_code = 'primary'
+                folder = txt_file.parent
                 
-                if base_stem not in file_groups:
-                    file_groups[base_stem] = {'transcript': None, 'summaries': [], 'audio': None}
-                file_groups[base_stem]['summaries'].append({'file': md_file, 'lang': lang_code})
-            
-            # Find corresponding audio files in media folder
-            if hasattr(self, 'media_folder'):
-                rel_path = folder_path.relative_to(base_output)
-                media_subfolder = self.media_folder / rel_path
+                # Find corresponding files
+                summaries = []
+                audio_file = None
                 
-                if media_subfolder.exists():
-                    audio_extensions = [f".{ext}" for ext in self.config['audio']['formats']]
-                    for audio_file in media_subfolder.iterdir():
-                        if audio_file.suffix.lower() in audio_extensions:
-                            stem = audio_file.stem
-                            if stem in file_groups:
-                                # Calculate relative path from HTML to media file
-                                try:
-                                    rel_to_media = os.path.relpath(audio_file, folder_path)
-                                    file_groups[stem]['audio'] = rel_to_media
-                                except ValueError:
-                                    # Fallback to absolute path
-                                    file_groups[stem]['audio'] = str(audio_file)
-            
-            # Generate HTML content
-            html_content = self._generate_html_content(folder_path, file_groups, base_output)
-            
-            # Save index.html
-            index_path = folder_path / "index.html"
-            with open(index_path, 'w', encoding='utf-8') as f:
-                f.write(html_content)
-            
-            self.logger.info(f"Generated index: {index_path}")
-            
-            # Process subfolders
-            for subfolder in folder_path.iterdir():
-                if subfolder.is_dir() and subfolder.name != "__pycache__":
-                    self._generate_folder_index(subfolder, base_output)
-                    
+                # Find summaries
+                for md_file in folder.glob(f"{stem}*.md"):
+                    if md_file.stem == stem:
+                        summaries.append({'file': md_file, 'lang': 'primary'})
+                    elif md_file.stem.endswith('_en'):
+                        summaries.append({'file': md_file, 'lang': 'en'})
+                    elif md_file.stem.endswith('_no'):
+                        summaries.append({'file': md_file, 'lang': 'no'})
+                
+                # Find audio file in media folder
+                if hasattr(self, 'media_folder'):
+                    try:
+                        rel_path = folder.relative_to(base_output)
+                        media_subfolder = self.media_folder / rel_path
+                        
+                        if media_subfolder.exists():
+                            audio_extensions = [f".{ext}" for ext in self.config['audio']['formats']]
+                            for audio in media_subfolder.iterdir():
+                                if audio.stem == stem and audio.suffix.lower() in audio_extensions:
+                                    # Calculate relative path from HTML to media file
+                                    audio_file = os.path.relpath(audio, folder)
+                                    break
+                    except ValueError:
+                        pass
+                
+                # Generate individual HTML file
+                html_content = self._generate_individual_html_content(
+                    stem, txt_file, summaries, audio_file, folder, base_output
+                )
+                
+                # Save individual HTML file
+                html_path = folder / f"{stem}.html"
+                with open(html_path, 'w', encoding='utf-8') as f:
+                    f.write(html_content)
+                
+                self.logger.info(f"Generated individual HTML: {html_path}")
+                
         except Exception as e:
-            self.logger.error(f"Failed to generate index for {folder_path}: {e}")
+            self.logger.error(f"Failed to generate individual HTML files: {e}")
 
-    def _generate_html_content(self, folder_path: Path, file_groups: Dict, base_output: Path) -> str:
-        """Generate HTML content for folder index"""
+    def _generate_individual_html_content(self, stem: str, txt_file: Path, summaries: List, 
+                                        audio_file: str, folder: Path, base_output: Path) -> str:
+        """Generate HTML content for individual audio file page"""
         
         # ASCII art header
         ascii_header = r"""
@@ -1129,11 +1112,61 @@ Summary:"""
  |_____/   |_|  |______|_| \_|\____/ \_____|_|  \_\/_/    \_\_|    |______|_| \_|
         """
         
-        folder_name = folder_path.name if folder_path != base_output else "Root"
+        # Read transcript content
+        try:
+            with open(txt_file, 'r', encoding='utf-8') as f:
+                transcript_content = f.read()
+        except:
+            transcript_content = "Could not load transcript."
         
-        # Contact info with Bitcoin tagline
+        # Read summaries
+        summary_content = ""
+        for summary in summaries:
+            try:
+                with open(summary['file'], 'r', encoding='utf-8') as f:
+                    content = f.read()
+                    lang_display = {
+                        'primary': 'Original Language',
+                        'en': 'English', 
+                        'no': 'Norwegian'
+                    }.get(summary['lang'], summary['lang'].upper())
+                    
+                    summary_content += f"""
+                    <div class="summary-section" data-lang="{summary['lang']}">
+                        <h3>📋 Summary ({lang_display})</h3>
+                        <div class="summary-content">{self._markdown_to_html(content)}</div>
+                    </div>
+                    """
+            except:
+                pass
+        
+        # Audio player section
+        audio_section = ""
+        if audio_file and self.config.get('output', {}).get('html', {}).get('include_audio_player', True):
+            audio_section = f"""
+            <div class="audio-section">
+                <h3>🎵 Audio Player</h3>
+                <audio controls class="main-audio-player">
+                    <source src="{audio_file}" type="audio/mpeg">
+                    Your browser does not support the audio element.
+                </audio>
+            </div>
+            """
+        
+        # Language toggle buttons (if multiple summaries)
+        language_toggle = ""
+        if len(summaries) > 1:
+            language_toggle = """
+            <div class="language-toggle">
+                <button onclick="showSummary('primary')" class="lang-btn active" id="btn-primary">Original</button>
+                <button onclick="showSummary('en')" class="lang-btn" id="btn-en">English</button>
+                <button onclick="showSummary('no')" class="lang-btn" id="btn-no">Norwegian</button>
+            </div>
+            """
+        
+        # Contact info
         contact = self.config.get('contact', {})
-        bitcoin_logo = "₿"  # Unicode Bitcoin symbol
+        bitcoin_logo = "₿"
         contact_info = f"""
         <div class="contact">
             <strong>{contact.get('name', 'Anders Iversen')}</strong><br>
@@ -1148,50 +1181,17 @@ Summary:"""
         </div>
         """
         
-        # File listings
-        file_list_html = ""
+        # Navigation
+        try:
+            rel_to_main = os.path.relpath(base_output / "hovedindex.html", folder)
+        except:
+            rel_to_main = "../hovedindex.html"
         
-        if file_groups:
-            file_list_html += "<div class='file-grid'>\n"
-            
-            for stem, files in sorted(file_groups.items()):
-                file_list_html += f"<div class='file-item'>\n"
-                file_list_html += f"<h3>{stem}</h3>\n"
-                
-                # Audio player
-                if files['audio'] and self.config.get('output', {}).get('html', {}).get('include_audio_player', True):
-                    file_list_html += f"""
-                    <audio controls class="audio-player">
-                        <source src="{files['audio']}" type="audio/mpeg">
-                        Your browser does not support the audio element.
-                    </audio>
-                    """
-                
-                # Transcript link
-                if files['transcript']:
-                    file_list_html += f"<p>📝 <a href='{files['transcript'].name}'>Transcript</a></p>\n"
-                
-                # Summary links
-                if files['summaries']:
-                    file_list_html += "<p>📋 Summaries: "
-                    summary_links = []
-                    for summary in files['summaries']:
-                        lang_display = {
-                            'primary': 'Original',
-                            'en': 'English', 
-                            'no': 'Norwegian'
-                        }.get(summary['lang'], summary['lang'].upper())
-                        
-                        summary_links.append(f"<a href='{summary['file'].name}'>{lang_display}</a>")
-                    
-                    file_list_html += " | ".join(summary_links)
-                    file_list_html += "</p>\n"
-                
-                file_list_html += "</div>\n"
-            
-            file_list_html += "</div>\n"
-        else:
-            file_list_html = "<p>No processed files found in this folder.</p>"
+        navigation = f"""
+        <div class="navigation">
+            <a href="{rel_to_main}" class="nav-link">← Back to Main Index</a>
+        </div>
+        """
         
         # Complete HTML template
         html_template = f"""<!DOCTYPE html>
@@ -1199,7 +1199,7 @@ Summary:"""
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>STENOGRAFEN - {folder_name}</title>
+    <title>STENOGRAFEN - {stem}</title>
     <style>
         body {{
             font-family: 'Courier New', monospace;
@@ -1225,57 +1225,106 @@ Summary:"""
             text-shadow: 0 0 10px #00ff00;
         }}
         
-        .folder-title {{
-            font-size: 24px;
+        .title {{
+            font-size: 28px;
             margin: 20px 0;
             text-align: center;
             color: #00ffff;
             text-shadow: 0 0 5px #00ffff;
         }}
         
-        .file-grid {{
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
+        .navigation {{
+            margin: 20px 0;
+            text-align: center;
+        }}
+        
+        .nav-link {{
+            color: #00ff00;
+            text-decoration: none;
+            padding: 10px 20px;
+            border: 1px solid #00ff00;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }}
+        
+        .nav-link:hover {{
+            background-color: #00ff00;
+            color: #0a0a0a;
+        }}
+        
+        .audio-section {{
+            background-color: #1a1a1a;
+            padding: 20px;
+            border: 1px solid #333;
+            border-radius: 5px;
             margin: 20px 0;
         }}
         
-        .file-item {{
-            background-color: #1a1a1a;
-            border: 1px solid #333;
-            padding: 20px;
-            border-radius: 5px;
-            transition: border-color 0.3s;
-        }}
-        
-        .file-item:hover {{
-            border-color: #00ff00;
-            box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
-        }}
-        
-        .file-item h3 {{
-            color: #00ffff;
-            margin-top: 0;
-            font-size: 18px;
-            border-bottom: 1px solid #333;
-            padding-bottom: 10px;
-        }}
-        
-        .audio-player {{
+        .main-audio-player {{
             width: 100%;
             margin: 10px 0;
             background-color: #2a2a2a;
         }}
         
-        a {{
-            color: #00ff00;
-            text-decoration: none;
-            transition: color 0.3s;
+        .language-toggle {{
+            text-align: center;
+            margin: 20px 0;
         }}
         
-        a:hover {{
+        .lang-btn {{
+            background-color: #1a1a1a;
+            color: #00ff00;
+            border: 1px solid #00ff00;
+            padding: 10px 20px;
+            margin: 0 5px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }}
+        
+        .lang-btn:hover, .lang-btn.active {{
+            background-color: #00ff00;
+            color: #0a0a0a;
+        }}
+        
+        .summary-section {{
+            background-color: #1a1a1a;
+            padding: 20px;
+            border: 1px solid #333;
+            border-radius: 5px;
+            margin: 20px 0;
+        }}
+        
+        .summary-section.hidden {{
+            display: none;
+        }}
+        
+        .transcript-section {{
+            background-color: #1a1a1a;
+            padding: 20px;
+            border: 1px solid #333;
+            border-radius: 5px;
+            margin: 20px 0;
+        }}
+        
+        .transcript-content {{
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            max-height: 400px;
+            overflow-y: auto;
+            background-color: #0a0a0a;
+            padding: 15px;
+            border: 1px solid #333;
+            border-radius: 3px;
+        }}
+        
+        .summary-content {{
+            color: #cccccc;
+        }}
+        
+        .summary-content h1, .summary-content h2, .summary-content h3 {{
             color: #00ffff;
-            text-shadow: 0 0 5px #00ffff;
         }}
         
         .footer {{
@@ -1295,11 +1344,6 @@ Summary:"""
             display: inline-block;
         }}
         
-        .timestamp {{
-            color: #666;
-            font-size: 11px;
-        }}
-        
         .crypto-tagline {{
             margin-top: 15px;
             color: #00ff00;
@@ -1309,8 +1353,15 @@ Summary:"""
             text-shadow: 0 0 3px #00ff00;
         }}
         
-        .crypto-tagline div {{
-            margin: 2px 0;
+        a {{
+            color: #00ff00;
+            text-decoration: none;
+            transition: color 0.3s;
+        }}
+        
+        a:hover {{
+            color: #00ffff;
+            text-shadow: 0 0 5px #00ffff;
         }}
         
         @media (max-width: 768px) {{
@@ -1318,12 +1369,13 @@ Summary:"""
                 font-size: 6px;
             }}
             
-            .file-grid {{
-                grid-template-columns: 1fr;
-            }}
-            
             body {{
                 padding: 10px;
+            }}
+            
+            .lang-btn {{
+                padding: 8px 15px;
+                margin: 2px;
             }}
         }}
     </style>
@@ -1333,10 +1385,19 @@ Summary:"""
         <pre>{ascii_header}</pre>
     </div>
     
-    <div class="folder-title">📁 {folder_name}</div>
+    <div class="title">🎙️ {stem}</div>
     
-    <div class="content">
-        {file_list_html}
+    {navigation}
+    
+    {audio_section}
+    
+    {language_toggle}
+    
+    {summary_content}
+    
+    <div class="transcript-section">
+        <h3>📝 Full Transcript</h3>
+        <div class="transcript-content">{transcript_content}</div>
     </div>
     
     <div class="footer">
@@ -1345,6 +1406,41 @@ Summary:"""
             Generated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         </div>
     </div>
+    
+    <script>
+        function showSummary(lang) {{
+            // Hide all summaries
+            document.querySelectorAll('.summary-section').forEach(section => {{
+                section.classList.add('hidden');
+            }});
+            
+            // Remove active class from all buttons
+            document.querySelectorAll('.lang-btn').forEach(btn => {{
+                btn.classList.remove('active');
+            }});
+            
+            // Show selected summary
+            const targetSection = document.querySelector(`[data-lang="${{lang}}"]`);
+            if (targetSection) {{
+                targetSection.classList.remove('hidden');
+            }}
+            
+            // Activate selected button
+            const targetBtn = document.getElementById(`btn-${{lang}}`);
+            if (targetBtn) {{
+                targetBtn.classList.add('active');
+            }}
+        }}
+        
+        // Initialize - show first available summary
+        document.addEventListener('DOMContentLoaded', function() {{
+            const firstSummary = document.querySelector('.summary-section');
+            if (firstSummary) {{
+                const lang = firstSummary.getAttribute('data-lang');
+                showSummary(lang);
+            }}
+        }});
+    </script>
 </body>
 </html>"""
         
