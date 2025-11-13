@@ -72,34 +72,82 @@ ls input/
 
 ---
 
-## 🌐 New HTML Interface
+## 🌐 Dual HTML Interface System
 
-### Self-Contained Web Interface
+The system provides **two complementary HTML generation approaches**:
+
+### 1. STENOGRAFEN Terminal Interface (Built-in)
 ```
 📁 Project Folder
-├── index.html              # STENOGRAFEN web interface
-├── transcript.txt           # Original transcription
-├── summary_no.md           # Norwegian summary
-├── summary_en.md           # English summary
-└── audio_file.mp3          # Original audio (linked)
+├── hovedindex.html         # Main retro terminal index
+├── audio_file.html         # Individual file pages
+├── transcript.txt          # Original transcription
+├── summary_no.md          # Norwegian summary
+├── summary_en.md          # English summary
+└── audio_file.mp3         # Original audio (linked)
 ```
 
-### Features
-- **ASCII Art Header** - Retro "STENOGRAFEN" branding
+**Features:**
+- **Retro ASCII Art** - Classic "STENOGRAFEN" terminal branding
+- **Dark Terminal Theme** - Green-on-black hacker aesthetic
 - **Audio Players** - Built-in HTML5 audio controls
 - **Language Toggle** - Switch between Norwegian/English summaries
-- **Responsive Design** - Works on desktop and mobile
-- **Dark Theme** - Easy on the eyes for long reading sessions
+- **Crypto Taglines** - Bitcoin-themed security messaging
 - **Contact Footer** - Your contact info automatically included
+
+### 2. Modern Navigation System (generate_index.py)
+```
+📁 Project Folder
+├── hovedindex.html         # Modern responsive main index
+├── folder_index.html       # Folder-level navigation
+├── audio_file.html         # Individual file pages with players
+└── [same content files]
+```
+
+**Features:**
+- **Modern Responsive Design** - Works perfectly on mobile/desktop
+- **Breadcrumb Navigation** - Easy folder traversal
+- **Audio Player Integration** - Clickable timestamps sync with audio
+- **Status Badges** - Visual indicators for available content
+- **Grid Layouts** - Organized file and folder displays
+- **Real-time Highlighting** - Transcript follows audio playback
+
+### Choosing Your Interface Style
+
+**Terminal Style (Default):**
+```yaml
+# config.yaml
+html_generation:
+  enabled: true
+  auto_generate: true
+```
+
+**Modern Navigation Style:**
+```bash
+# After transcription, run separately:
+python generate_index.py
+```
+
+**Both Styles:**
+```bash
+# Process with built-in HTML
+./run_transcribe.sh
+
+# Then add modern navigation
+python generate_index.py
+```
 
 ### Access Your Results
 ```bash
-# After processing, open any folder's index.html
-firefox output/project_name/index.html
+# Terminal style
+firefox input/hovedindex.html
+
+# Modern style (after generate_index.py)
+firefox input/hovedindex.html  # Will be modern version
 
 # Or serve locally
 python -m http.server 8000
-# Then visit: http://localhost:8000/output/
+# Then visit: http://localhost:8000/input/
 ```
 
 ---
@@ -314,6 +362,27 @@ Features:
 
 ## 📁 Example Workflows
 
+### Interface Selection Guide
+
+**Choose Terminal Style when:**
+- You want automatic HTML generation
+- You prefer retro/hacker aesthetic  
+- You need simple, fast interface
+- You're processing files once
+
+**Choose Modern Style when:**
+- You need mobile-responsive design
+- You want professional presentation
+- You need advanced navigation features
+- You're building a content archive
+
+**Use Both when:**
+- You want terminal individual pages + modern navigation
+- You need different interfaces for different audiences
+- You want maximum flexibility
+
+---
+
 ### Workflow 1: Norwegian Podcast → English Summary
 ```yaml
 # config.yaml
@@ -394,21 +463,54 @@ Output:
 - `meeting_en.md` - English summary
 - `index.html` - Web interface with audio player
 
-### Workflow 6: Complete Web Documentation
+### Workflow 6: Complete Web Documentation (Terminal Style)
 ```bash
-# Process entire project with web interface
+# Process entire project with retro terminal interface
 cp -r project_audio/* input/
 ./run_transcribe.sh
 
 # Get complete web-ready documentation
-firefox output/index.html
+firefox input/hovedindex.html
 ```
 
-Features:
-- Folder-by-folder HTML indexes
-- Audio players for each file
-- Language-specific summaries
-- Mobile-responsive design
+### Workflow 7: Modern Navigation Interface
+```bash
+# Process files first
+./run_transcribe.sh
+
+# Generate modern responsive navigation
+python generate_index.py
+
+# Access modern interface
+firefox input/hovedindex.html
+```
+
+### Workflow 8: Dual Interface Setup
+```bash
+# Process with terminal interface
+./run_transcribe.sh
+
+# Add modern navigation (overwrites hovedindex.html)
+python generate_index.py
+
+# Now you have:
+# - Modern hovedindex.html (main navigation)
+# - Terminal-style individual file pages
+# - Best of both worlds!
+```
+
+**Terminal Interface Features:**
+- Retro ASCII art branding
+- Dark terminal aesthetic
+- Crypto/Bitcoin themed
+- Individual file pages with audio players
+
+**Modern Interface Features:**
+- Responsive grid layouts
+- Breadcrumb navigation
+- Real-time audio sync
+- Status indicators
+- Mobile-optimized
 
 ---
 
