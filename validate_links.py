@@ -76,10 +76,55 @@ class LinkValidator:
         self.logger.info(f"Found {len(files['html'])} HTML files")
         self.logger.info(f"Found {len(files['audio'])} audio files")
         
+        # Check for orphaned files
+        self._check_orphaned_files(files)
+        
+        # Clean up old HTML files if needed
+        self._cleanup_old_html_files()
+        
         # Regenerate HTML structure
         self.regenerate_html_structure()
         
         self.logger.info("Validation and cleanup complete!")
+    
+    def _check_orphaned_files(self, files: Dict[str, Set[str]]):
+        """Check for orphaned summary files without corresponding transcripts"""
+        transcript_stems = {Path(t).stem for t in files['transcripts']}
+        
+        # Check Norwegian summaries
+        for summary_no in files['summaries_no']:
+            stem = Path(summary_no).stem.replace('_no', '')
+            if stem not in transcript_stems:
+                self.logger.warning(f"Orphaned Norwegian summary: {summary_no}")
+        
+        # Check English summaries
+        for summary_en in files['summaries_en']:
+            stem = Path(summary_en).stem.replace('_en', '')
+            if stem not in transcript_stems:
+                self.logger.warning(f"Orphaned English summary: {summary_en}")
+    
+    def _cleanup_old_html_files(self):
+        """Remove old HTML files that might be outdated"""
+        try:
+            # Find and remove old hovedindex.html files in subfolders
+            for html_file in self.input_folder.rglob("hovedindex.html"):
+                if html_file.parent != self.input_folder:
+                    self.logger.info(f"Removing old hovedindex.html: {html_file}")
+                    html_file.unlink()
+            
+            # Find and remove old folder_index.html files that might be stale
+            for html_file in self.input_folder.rglob("folder_index.html"):
+                # Check if folder still contains audio files
+                folder = html_file.parent
+                audio_extensions = [f".{ext}" for ext in self.config['audio']['formats']]
+                has_audio = any(f.suffix.lower() in audio_extensions for f in folder.iterdir() if f.is_file())
+                
+                if not has_audio:
+                    self.logger.info(f"Removing folder_index.html from empty folder: {html_file}")
+                    html_file.unlink()
+                    
+        except Exception as e:
+            self.logger.error(f"Cleanup error: {e}")
 
 def main():
     validator = LinkValidator()
