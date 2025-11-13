@@ -130,6 +130,16 @@ processing:
   # Log level: "DEBUG", "INFO", "WARNING", "ERROR"
   log_level: "INFO"
 
+# HTML Generation
+html_generation:
+  enabled: true
+  # Generate after transcription completes
+  auto_generate: true
+  # Include audio players in individual pages
+  include_audio_player: true
+  # Responsive design for mobile
+  responsive: true
+
 # Multi-Pass Transcription (for difficult audio)
 multi_pass:
   enabled: false  # Set to true for challenging audio

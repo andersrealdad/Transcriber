@@ -1023,6 +1023,10 @@ Summary:"""
         
         self.logger.info("Processing complete!")
         
+        # Generate HTML navigation if enabled
+        if self.config.get('html_generation', {}).get('auto_generate', False):
+            self.generate_html_navigation()
+        
         # Generate HTML index if enabled
         if self.config.get('output', {}).get('html', {}).get('enabled', False):
             self.generate_html_index()
@@ -1322,6 +1326,19 @@ Summary:"""
 </html>"""
         
         return html_template
+
+    def generate_html_navigation(self):
+        """Generate HTML navigation system"""
+        if not self.config.get('html_generation', {}).get('enabled', False):
+            return
+        
+        try:
+            from generate_index import HTMLIndexGenerator
+            generator = HTMLIndexGenerator()
+            generator.generate_all_indexes()
+            self.logger.info("HTML navigation system generated")
+        except Exception as e:
+            self.logger.error(f"HTML generation failed: {e}")
 
     def generate_html_index(self):
         """Generate HTML index files for processed content"""
