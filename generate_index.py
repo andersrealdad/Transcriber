@@ -878,11 +878,11 @@ class HTMLIndexGenerator:
                 for (let i = 0; i < timestamps.length; i++) {{
                     const timestamp = timestamps[i];
                     const onclick = timestamp.getAttribute('onclick');
-                    const match = onclick.match(/seekAudio\\\\((\\\\d+)\\\\)/);
+                    const match = onclick.match(/seekAudio\\\\\\\\((\\\\\\\\d+)\\\\\\\\)/);
                     if (match) {{
                         const lineTime = parseInt(match[1]);
                         const nextLineTime = i < timestamps.length - 1 ? 
-                            parseInt(timestamps[i + 1].getAttribute('onclick').match(/seekAudio\\\\((\\\\d+)\\\\)/)[1]) : 
+                            parseInt(timestamps[i + 1].getAttribute('onclick').match(/seekAudio\\\\\\\\((\\\\\\\\d+)\\\\\\\\)/)[1]) : 
                             Infinity;
                         
                         if (currentTime >= lineTime && currentTime < nextLineTime) {{
