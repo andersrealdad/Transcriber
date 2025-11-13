@@ -96,14 +96,9 @@ ollama:
     style: "detailed"
     # Include key topics/themes
     extract_topics: true
-    # Language for summary (null = same as audio, or specify: "en", "no")
-    language: null
     # Dual-language summary generation
-    dual_language:
-      enabled: true
-      primary: null      # null = auto-detect from transcription
-      secondary: "en"    # Always generate English summary
-      force_primary_language: null  # null=auto, "no"=force Norwegian, "en"=force English
+    dual_language: true
+    languages: ["no", "en"]
   # Process in separate step (won't block transcription if Ollama is busy)
   async_processing: true
 

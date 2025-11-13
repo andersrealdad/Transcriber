@@ -599,9 +599,9 @@ Do not add explanations or comments."""
         if format_type in ['json', 'all']:
             self._save_json(results, output_path.with_suffix('.json'))
         
-        # Generate Ollama summary if enabled
+        # Generate dual-language summaries if enabled
         if self.ollama_available and self.config['ollama']['generate_summary']:
-            self.generate_summary(results, output_path)
+            self.generate_dual_language_summary(results, output_path)
 
     def _save_srt(self, results: Dict, output_path: Path):
         """Save as SRT subtitle format"""
@@ -644,8 +644,8 @@ Do not add explanations or comments."""
         millis = int((seconds % 1) * 1000)
         return f"{hours:02d}:{minutes:02d}:{secs:02d}.{millis:03d}"
 
-    def generate_summary(self, results: Dict, output_path: Path):
-        """Generate AI summary using Ollama"""
+    def generate_dual_language_summary(self, results: Dict, output_path: Path):
+        """Generate dual-language summaries (source + target language)"""
         try:
             full_text = results['full_text']
             
@@ -654,39 +654,41 @@ Do not add explanations or comments."""
                 self.logger.info("Text too short for summary")
                 return
             
-            # Generate primary summary
-            primary_summary = self._generate_single_summary(results, output_path)
-            
-            # Generate dual-language summary if enabled
-            if (self.config['ollama']['summary'].get('dual_language', {}).get('enabled', False) 
-                and primary_summary):
-                self._generate_dual_language_summary(results, output_path, primary_summary)
+            # Get configuration
+            dual_config = self.config['ollama']['summary']
+            if not dual_config.get('dual_language', False):
+                self.logger.info("Dual-language summaries disabled")
+                return
                 
-        except requests.exceptions.Timeout:
-            self.logger.error("Ollama request timeout (model might be busy)")
+            languages = dual_config.get('languages', ['no', 'en'])
+            detected_lang = results.get('language', 'unknown')
+            
+            # Generate summary for each configured language
+            for lang_code in languages:
+                self._generate_single_language_summary(
+                    results, output_path, lang_code, detected_lang
+                )
+                
         except Exception as e:
-            self.logger.error(f"Summary generation failed: {e}")
+            self.logger.error(f"Dual-language summary generation failed: {e}")
 
-    def _generate_single_summary(self, results: Dict, output_path: Path) -> Optional[str]:
-        """Generate a single summary in specified or detected language"""
+    def _generate_single_language_summary(self, results: Dict, output_path: Path, 
+                                         target_lang: str, detected_lang: str):
+        """Generate summary in specific language"""
         try:
             full_text = results['full_text']
             
-            # Determine primary language
-            dual_lang_config = self.config['ollama']['summary'].get('dual_language', {})
-            force_primary = dual_lang_config.get('force_primary_language')
+            # Language mapping
+            lang_names = {
+                'no': 'Norwegian',
+                'en': 'English',
+                'es': 'Spanish',
+                'fr': 'French',
+                'de': 'German'
+            }
             
-            if force_primary:
-                primary_lang = force_primary
-                lang_instruction = f"in {force_primary.upper()}"
-            else:
-                config_lang = self.config['ollama']['summary']['language']
-                if config_lang:
-                    primary_lang = config_lang
-                    lang_instruction = f"in {config_lang.upper()}"
-                else:
-                    primary_lang = results.get('language', 'unknown')
-                    lang_instruction = f"in the same language as the transcription ({primary_lang.upper()})"
+            target_lang_name = lang_names.get(target_lang, target_lang.upper())
+            detected_lang_name = lang_names.get(detected_lang, detected_lang.upper())
             
             # Build prompt
             max_length = self.config['ollama']['summary']['max_length']
@@ -701,120 +703,16 @@ Do not add explanations or comments."""
             else:  # detailed
                 style_instruction = "Write a detailed summary covering all main points and key information"
             
-            prompt = f"""{style_instruction} {lang_instruction}.
+            prompt = f"""{style_instruction} in {target_lang_name}.
 
-Transcription (detected language: {results.get('language', 'unknown').upper()}):
-
-{full_text}
-
-Summary:"""
-
-            if extract_topics:
-                prompt += "\n\n[After the summary, list 3-5 key topics/themes]"
-            
-            # Call Ollama API
-            api_url = self.config['ollama']['api_url']
-            model = self.config['ollama']['model']
-            
-            response = requests.post(
-                f"{api_url}/api/generate",
-                json={
-                    "model": model,
-                    "prompt": prompt,
-                    "stream": False,
-                    "options": {
-                        "temperature": 0.7,
-                        "num_predict": max_length * 2  # Rough token estimate
-                    }
-                },
-                timeout=120
-            )
-            
-            if response.status_code == 200:
-                summary_text = response.json()['response']
-                
-                # Determine filename suffix
-                suffix = ""
-                if dual_lang_config.get('enabled', False):
-                    # Use language code for dual-language mode
-                    lang_code = "no" if primary_lang.lower() in ["norwegian", "no"] else primary_lang.lower()[:2]
-                    suffix = f"_{lang_code}"
-                
-                # Save summary as markdown
-                md_path = output_path.with_suffix(f'{suffix}.md') if suffix else output_path.with_suffix('.md')
-                
-                with open(md_path, 'w', encoding='utf-8') as f:
-                    f.write(f"# Summary: {output_path.stem}\n\n")
-                    
-                    # Add metadata
-                    f.write(f"**Generated by:** {model}\n\n")
-                    f.write(f"**Language:** {primary_lang.upper()}\n\n")
-                    f.write(f"**Source Language:** {results.get('language', 'unknown').upper()}\n\n")
-                    f.write(f"---\n\n")
-                    
-                    # Add summary
-                    f.write(summary_text.strip())
-                    f.write("\n\n---\n\n")
-                    f.write(f"*Generated from transcription: {output_path.with_suffix('.txt').name}*\n")
-                
-                self.logger.info(f"Summary saved: {md_path}")
-                return summary_text
-            else:
-                self.logger.error(f"Ollama API error: {response.status_code}")
-                return None
-                
-        except Exception as e:
-            self.logger.error(f"Single summary generation failed: {e}")
-            return None
-
-    def _generate_dual_language_summary(self, results: Dict, output_path: Path, primary_summary: str):
-        """Generate secondary language summary"""
-        try:
-            dual_lang_config = self.config['ollama']['summary']['dual_language']
-            secondary_lang = dual_lang_config.get('secondary', 'en')
-            
-            # Determine primary language
-            force_primary = dual_lang_config.get('force_primary_language')
-            if force_primary:
-                primary_lang = force_primary
-            else:
-                config_lang = self.config['ollama']['summary']['language']
-                primary_lang = config_lang if config_lang else results.get('language', 'unknown')
-            
-            # Skip if primary and secondary are the same
-            primary_code = "no" if primary_lang.lower() in ["norwegian", "no"] else primary_lang.lower()[:2]
-            secondary_code = "no" if secondary_lang.lower() in ["norwegian", "no"] else secondary_lang.lower()[:2]
-            
-            if primary_code == secondary_code:
-                self.logger.info(f"Primary and secondary languages are the same ({primary_code}), skipping dual-language summary")
-                return
-            
-            # Generate secondary summary
-            full_text = results['full_text']
-            max_length = self.config['ollama']['summary']['max_length']
-            style = self.config['ollama']['summary']['style']
-            extract_topics = self.config['ollama']['summary']['extract_topics']
-            
-            # Style instruction
-            if style == "concise":
-                style_instruction = "Write a concise summary (2-3 sentences)"
-            elif style == "bullet_points":
-                style_instruction = "Write a summary as bullet points highlighting key information"
-            else:  # detailed
-                style_instruction = "Write a detailed summary covering all main points and key information"
-            
-            secondary_lang_name = "English" if secondary_lang.lower() == "en" else "Norwegian" if secondary_lang.lower() == "no" else secondary_lang.upper()
-            
-            prompt = f"""{style_instruction} in {secondary_lang_name}.
-
-Transcription (detected language: {results.get('language', 'unknown').upper()}):
+Transcription (detected language: {detected_lang_name}):
 
 {full_text}
 
-Summary:"""
+Summary in {target_lang_name}:"""
 
             if extract_topics:
-                prompt += f"\n\n[After the summary, list 3-5 key topics/themes in {secondary_lang_name}]"
+                prompt += f"\n\n[After the summary, list 3-5 key topics/themes in {target_lang_name}]"
             
             # Call Ollama API
             api_url = self.config['ollama']['api_url']
@@ -837,16 +735,16 @@ Summary:"""
             if response.status_code == 200:
                 summary_text = response.json()['response']
                 
-                # Save secondary summary
-                md_path = output_path.with_suffix(f'_{secondary_code}.md')
+                # Save summary with language suffix
+                md_path = output_path.with_suffix(f'_{target_lang}.md')
                 
                 with open(md_path, 'w', encoding='utf-8') as f:
                     f.write(f"# Summary: {output_path.stem}\n\n")
                     
                     # Add metadata
                     f.write(f"**Generated by:** {model}\n\n")
-                    f.write(f"**Language:** {secondary_lang_name}\n\n")
-                    f.write(f"**Source Language:** {results.get('language', 'unknown').upper()}\n\n")
+                    f.write(f"**Language:** {target_lang_name}\n\n")
+                    f.write(f"**Source Language:** {detected_lang_name}\n\n")
                     f.write(f"---\n\n")
                     
                     # Add summary
@@ -854,12 +752,12 @@ Summary:"""
                     f.write("\n\n---\n\n")
                     f.write(f"*Generated from transcription: {output_path.with_suffix('.txt').name}*\n")
                 
-                self.logger.info(f"Dual-language summary saved: {md_path}")
+                self.logger.info(f"Summary saved ({target_lang_name}): {md_path}")
             else:
-                self.logger.error(f"Ollama API error for secondary summary: {response.status_code}")
+                self.logger.error(f"Ollama API error for {target_lang_name} summary: {response.status_code}")
                 
         except Exception as e:
-            self.logger.error(f"Dual-language summary generation failed: {e}")
+            self.logger.error(f"Summary generation failed for {target_lang}: {e}")
 
     def ocr_pdf(self, pdf_path: Path) -> Optional[str]:
         """Extract text from PDF using OCR"""

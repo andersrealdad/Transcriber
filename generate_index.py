@@ -61,7 +61,7 @@ class HTMLIndexGenerator:
                     'audio_file': item,
                     'stem': stem,
                     'has_transcript': (folder / f"{stem}.txt").exists(),
-                    'has_summary_no': (folder / f"{stem}.md").exists() or (folder / f"{stem}_no.md").exists(),
+                    'has_summary_no': (folder / f"{stem}_no.md").exists(),
                     'has_summary_en': (folder / f"{stem}_en.md").exists(),
                     'has_html': (folder / f"{stem}.html").exists()
                 }
@@ -607,6 +607,17 @@ class HTMLIndexGenerator:
         else:
             transcript_content = "<p>No transcript available</p>"
         
+        # Add search section
+        search_section = """
+        <div class="search-section">
+            <h3>🔍 Search Transcript</h3>
+            <input type="text" id="searchInput" placeholder="Search for words in transcript..." class="search-input">
+            <div id="searchResults" class="search-results"></div>
+        </div>
+        """
+        
+        transcript_content_with_search = f"{search_section}{transcript_content}"
+        
         # Load summaries
         summary_tabs = ""
         summary_content = ""
@@ -618,11 +629,7 @@ class HTMLIndexGenerator:
                 summary_tabs += '<button class="tab-button active" onclick="showTab(\'no\')">🇳🇴 Norwegian</button>'
                 
                 try:
-                    # Try both .md and _no.md
-                    summary_path = folder_info['path'] / f"{file_info['stem']}.md"
-                    if not summary_path.exists():
-                        summary_path = folder_info['path'] / f"{file_info['stem']}_no.md"
-                    
+                    summary_path = folder_info['path'] / f"{file_info['stem']}_no.md"
                     with open(summary_path, 'r', encoding='utf-8') as f:
                         summary_no = f.read()
                     
@@ -659,8 +666,7 @@ class HTMLIndexGenerator:
         if file_info['has_transcript']:
             download_links += f'<a href="{file_info["stem"]}.txt" download>📄 Download Transcript</a>'
         if file_info['has_summary_no']:
-            summary_file = f"{file_info['stem']}.md" if (folder_info['path'] / f"{file_info['stem']}.md").exists() else f"{file_info['stem']}_no.md"
-            download_links += f'<a href="{summary_file}" download>📋 Download Summary (NO)</a>'
+            download_links += f'<a href="{file_info["stem"]}_no.md" download>📋 Download Summary (NO)</a>'
         if file_info['has_summary_en']:
             download_links += f'<a href="{file_info["stem"]}_en.md" download>📋 Download Summary (EN)</a>'
         
@@ -700,7 +706,7 @@ class HTMLIndexGenerator:
         <div class="card">
             <h2>📝 Transcript</h2>
             <div class="transcript-section">
-                {transcript_content}
+                {transcript_content_with_search}
             </div>
         </div>
         
@@ -751,6 +757,75 @@ class HTMLIndexGenerator:
             event.target.classList.add('active');
         }}
         
+        // Search functionality
+        let originalTranscript = '';
+        
+        document.addEventListener('DOMContentLoaded', function() {{
+            const transcriptContent = document.querySelector('.transcript-section');
+            const searchInput = document.getElementById('searchInput');
+            const searchResults = document.getElementById('searchResults');
+            
+            if (transcriptContent) {{
+                // Store original content (excluding search section)
+                const transcriptLines = transcriptContent.querySelectorAll('.transcript-line');
+                originalTranscript = Array.from(transcriptLines).map(line => line.outerHTML).join('');
+            }}
+            
+            if (searchInput) {{
+                searchInput.addEventListener('input', function() {{
+                    const query = this.value.trim();
+                    performSearch(query);
+                }});
+            }}
+        }});
+        
+        function performSearch(query) {{
+            const transcriptSection = document.querySelector('.transcript-section');
+            const searchResults = document.getElementById('searchResults');
+            const transcriptLines = transcriptSection.querySelectorAll('.transcript-line');
+            
+            if (!query) {{
+                // Restore original content
+                transcriptLines.forEach(line => {{
+                    line.innerHTML = line.innerHTML.replace(/<span class="highlight">(.*?)<\/span>/g, '$1');
+                }});
+                searchResults.textContent = '';
+                return;
+            }}
+            
+            // Remove previous highlights
+            transcriptLines.forEach(line => {{
+                line.innerHTML = line.innerHTML.replace(/<span class="highlight">(.*?)<\/span>/g, '$1');
+            }});
+            
+            // Escape special regex characters
+            const escapedQuery = query.replace(/[.*+?^${{}}()|[\\]\\\\]/g, '\\\\$&');
+            const regex = new RegExp(`(${{escapedQuery}})`, 'gi');
+            
+            let matchCount = 0;
+            
+            // Highlight matches in each line
+            transcriptLines.forEach(line => {{
+                const textSpan = line.querySelector('.text');
+                if (textSpan) {{
+                    const originalText = textSpan.textContent;
+                    const matches = originalText.match(regex);
+                    if (matches) {{
+                        matchCount += matches.length;
+                        const highlightedText = originalText.replace(regex, '<span class="highlight">$1</span>');
+                        textSpan.innerHTML = highlightedText;
+                    }}
+                }}
+            }});
+            
+            // Update results
+            if (matchCount > 0) {{
+                searchResults.textContent = `Found ${{matchCount}} match${{matchCount !== 1 ? 'es' : ''}}`;
+            }} else {{
+                searchResults.textContent = 'No matches found';
+            }}
+        }}
+        
         // Update transcript highlighting based on audio position
         const audio = document.getElementById('audioPlayer');
         if (audio) {{
@@ -767,11 +842,11 @@ class HTMLIndexGenerator:
                 for (let i = 0; i < timestamps.length; i++) {{
                     const timestamp = timestamps[i];
                     const onclick = timestamp.getAttribute('onclick');
-                    const match = onclick.match(/seekAudio\\((\\d+)\\)/);
+                    const match = onclick.match(/seekAudio\\\\((\\\\d+)\\\\)/);
                     if (match) {{
                         const lineTime = parseInt(match[1]);
                         const nextLineTime = i < timestamps.length - 1 ? 
-                            parseInt(timestamps[i + 1].getAttribute('onclick').match(/seekAudio\\((\\d+)\\)/)[1]) : 
+                            parseInt(timestamps[i + 1].getAttribute('onclick').match(/seekAudio\\\\((\\\\d+)\\\\)/)[1]) : 
                             Infinity;
                         
                         if (currentTime >= lineTime && currentTime < nextLineTime) {{
