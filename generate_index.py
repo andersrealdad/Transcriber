@@ -362,6 +362,42 @@ class HTMLIndexGenerator:
             border-radius: 10px;
         }
         
+        .search-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        
+        .search-input:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+        
+        .search-results {
+            margin-top: 10px;
+            color: #6c757d;
+            font-size: 14px;
+        }
+        
+        .highlight {
+            background-color: #fff3cd;
+            color: #856404;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+        
         @media (max-width: 768px) {
             .container {
                 padding: 10px;
