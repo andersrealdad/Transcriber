@@ -1027,6 +1027,302 @@ Summary:"""
         if self.config.get('output', {}).get('html', {}).get('enabled', False):
             self.generate_html_index()
 
+    def _generate_main_index(self, base_output: Path):
+        """Generate main index (hovedindex.html) listing all folders and files"""
+        try:
+            # Collect all processed files organized by folder
+            folder_structure = {}
+            
+            for txt_file in base_output.rglob("*.txt"):
+                folder = txt_file.parent
+                rel_folder = folder.relative_to(base_output) if folder != base_output else Path(".")
+                
+                if str(rel_folder) not in folder_structure:
+                    folder_structure[str(rel_folder)] = []
+                
+                # Check if individual HTML exists
+                html_file = folder / f"{txt_file.stem}.html"
+                has_html = html_file.exists()
+                
+                # Find audio file
+                audio_file = None
+                if hasattr(self, 'media_folder'):
+                    try:
+                        media_subfolder = self.media_folder / rel_folder
+                        if media_subfolder.exists():
+                            audio_extensions = [f".{ext}" for ext in self.config['audio']['formats']]
+                            for audio in media_subfolder.iterdir():
+                                if audio.stem == txt_file.stem and audio.suffix.lower() in audio_extensions:
+                                    audio_file = audio.name
+                                    break
+                    except:
+                        pass
+                
+                folder_structure[str(rel_folder)].append({
+                    'stem': txt_file.stem,
+                    'has_html': has_html,
+                    'audio_file': audio_file,
+                    'folder_path': rel_folder
+                })
+            
+            # Generate HTML content
+            html_content = self._generate_main_index_content(folder_structure, base_output)
+            
+            # Save hovedindex.html
+            main_index_path = base_output / "hovedindex.html"
+            with open(main_index_path, 'w', encoding='utf-8') as f:
+                f.write(html_content)
+            
+            self.logger.info(f"Generated main index: {main_index_path}")
+            
+        except Exception as e:
+            self.logger.error(f"Failed to generate main index: {e}")
+
+    def _markdown_to_html(self, markdown_text: str) -> str:
+        """Simple markdown to HTML converter"""
+        import re
+        
+        # Convert headers
+        html = re.sub(r'^# (.*$)', r'<h1>\1</h1>', markdown_text, flags=re.MULTILINE)
+        html = re.sub(r'^## (.*$)', r'<h2>\1</h2>', html, flags=re.MULTILINE)
+        html = re.sub(r'^### (.*$)', r'<h3>\1</h3>', html, flags=re.MULTILINE)
+        
+        # Convert bold
+        html = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', html)
+        
+        # Convert italic
+        html = re.sub(r'\*(.*?)\*', r'<em>\1</em>', html)
+        
+        # Convert line breaks
+        html = html.replace('\n\n', '</p><p>')
+        html = html.replace('\n', '<br>')
+        html = f'<p>{html}</p>'
+        
+        # Clean up empty paragraphs
+        html = re.sub(r'<p></p>', '', html)
+        html = re.sub(r'<p><br></p>', '', html)
+        
+        return html
+
+    def _generate_main_index_content(self, folder_structure: Dict, base_output: Path) -> str:
+        """Generate HTML content for main index"""
+        
+        ascii_header = r"""
+   _____ _______ ______ _   _  ____   _____ _____            ______ ______ _   _ 
+  / ____|__   __|  ____| \ | |/ __ \ / ____|  __ \     /\   |  ____|  ____| \ | |
+ | (___    | |  | |__  |  \| | |  | | |  __| |__) |   /  \  | |__  | |__  |  \| |
+  \___ \   | |  |  __| | . ` | |  | | | |_ |  _  /   / /\ \ |  __| |  __| | . ` |
+  ____) |  | |  | |____| |\  | |__| | |__| | | \ \  / ____ \| |    | |____| |\  |
+ |_____/   |_|  |______|_| \_|\____/ \_____|_|  \_\/_/    \_\_|    |______|_| \_|
+        """
+        
+        # Generate folder listings
+        folder_list_html = ""
+        
+        for folder_path, files in sorted(folder_structure.items()):
+            if not files:
+                continue
+                
+            folder_display = "Root" if folder_path == "." else folder_path
+            folder_list_html += f"""
+            <div class="folder-section">
+                <h2>📁 {folder_display}</h2>
+                <div class="file-grid">
+            """
+            
+            for file_info in sorted(files, key=lambda x: x['stem']):
+                if file_info['has_html']:
+                    html_link = f"{folder_path}/{file_info['stem']}.html" if folder_path != "." else f"{file_info['stem']}.html"
+                    audio_info = f"🎵 {file_info['audio_file']}" if file_info['audio_file'] else "📝 Text only"
+                    
+                    folder_list_html += f"""
+                    <div class="file-item">
+                        <h3><a href="{html_link}">{file_info['stem']}</a></h3>
+                        <p>{audio_info}</p>
+                    </div>
+                    """
+            
+            folder_list_html += """
+                </div>
+            </div>
+            """
+        
+        # Contact info
+        contact = self.config.get('contact', {})
+        bitcoin_logo = "₿"
+        contact_info = f"""
+        <div class="contact">
+            <strong>{contact.get('name', 'Anders Iversen')}</strong><br>
+            📞 {contact.get('phone', '+47 97 41 75 26')}<br>
+            🐙 <a href="https://github.com/{contact.get('github', 'andersrealdad')}" target="_blank">
+                github.com/{contact.get('github', 'andersrealdad')}
+            </a>
+        </div>
+        <div class="crypto-tagline">
+            <div>Transkripsjonen gjort kryptert med SHA-256</div>
+            <div>Stenografen sikkert som bitcoin {bitcoin_logo}</div>
+        </div>
+        """
+        
+        # Complete HTML template
+        html_template = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STENOGRAFEN - Main Index</title>
+    <style>
+        body {{
+            font-family: 'Courier New', monospace;
+            background-color: #0a0a0a;
+            color: #00ff00;
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+        }}
+        
+        .header {{
+            background-color: #1a1a1a;
+            padding: 20px;
+            border: 2px solid #00ff00;
+            margin-bottom: 30px;
+            text-align: center;
+        }}
+        
+        .header pre {{
+            margin: 0;
+            font-size: 8px;
+            color: #00ff00;
+            text-shadow: 0 0 10px #00ff00;
+        }}
+        
+        .main-title {{
+            font-size: 32px;
+            margin: 20px 0;
+            text-align: center;
+            color: #00ffff;
+            text-shadow: 0 0 5px #00ffff;
+        }}
+        
+        .folder-section {{
+            margin: 30px 0;
+            background-color: #1a1a1a;
+            padding: 20px;
+            border: 1px solid #333;
+            border-radius: 5px;
+        }}
+        
+        .folder-section h2 {{
+            color: #00ffff;
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+        }}
+        
+        .file-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }}
+        
+        .file-item {{
+            background-color: #0a0a0a;
+            border: 1px solid #333;
+            padding: 15px;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }}
+        
+        .file-item:hover {{
+            border-color: #00ff00;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+        }}
+        
+        .file-item h3 {{
+            margin: 0 0 10px 0;
+            font-size: 16px;
+        }}
+        
+        .file-item p {{
+            margin: 0;
+            color: #666;
+            font-size: 12px;
+        }}
+        
+        a {{
+            color: #00ff00;
+            text-decoration: none;
+            transition: color 0.3s;
+        }}
+        
+        a:hover {{
+            color: #00ffff;
+            text-shadow: 0 0 5px #00ffff;
+        }}
+        
+        .footer {{
+            margin-top: 40px;
+            padding: 20px;
+            border-top: 1px solid #333;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+        }}
+        
+        .contact {{
+            background-color: #1a1a1a;
+            padding: 15px;
+            border: 1px solid #333;
+            border-radius: 5px;
+            display: inline-block;
+        }}
+        
+        .crypto-tagline {{
+            margin-top: 15px;
+            color: #00ff00;
+            font-size: 11px;
+            text-align: center;
+            font-weight: bold;
+            text-shadow: 0 0 3px #00ff00;
+        }}
+        
+        @media (max-width: 768px) {{
+            .header pre {{
+                font-size: 6px;
+            }}
+            
+            .file-grid {{
+                grid-template-columns: 1fr;
+            }}
+            
+            body {{
+                padding: 10px;
+            }}
+        }}
+    </style>
+</head>
+<body>
+    <div class="header">
+        <pre>{ascii_header}</pre>
+    </div>
+    
+    <div class="main-title">🎙️ STENOGRAFEN ARCHIVE</div>
+    
+    <div class="content">
+        {folder_list_html}
+    </div>
+    
+    <div class="footer">
+        {contact_info}
+        <div class="timestamp">
+            Generated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+        </div>
+    </div>
+</body>
+</html>"""
+        
+        return html_template
+
     def generate_html_index(self):
         """Generate HTML index files for processed content"""
         try:
