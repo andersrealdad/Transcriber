@@ -141,3 +141,13 @@ multi_pass:
   keep_individual: true
   # Confidence threshold for merging (0.0-1.0)
   merge_threshold: 0.7
+
+# Summary Regeneration (for summary_only.py)
+summary_regeneration:
+  enabled: true
+  # Languages to generate summaries in
+  languages: ["no", "en"]  # Original + English
+  # Force regeneration even if summaries exist
+  force: false
+  # Use same Ollama settings as main transcription
+  inherit_ollama_settings: true
