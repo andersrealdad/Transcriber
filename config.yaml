@@ -130,15 +130,36 @@ processing:
   # Log level: "DEBUG", "INFO", "WARNING", "ERROR"
   log_level: "INFO"
 
-# HTML Generation
+### HTML Generation Options
+
+**Built-in Terminal Interface:**
+```yaml
 html_generation:
   enabled: true
-  # Generate after transcription completes
-  auto_generate: true
-  # Include audio players in individual pages
-  include_audio_player: true
-  # Responsive design for mobile
-  responsive: true
+  auto_generate: true        # Generate during transcription
+  include_audio_player: true # Audio controls on individual pages
+```
+
+**Modern Navigation System:**
+```yaml
+# Run separately after transcription
+# python generate_index.py
+
+# Or integrate into processing:
+processing:
+  generate_modern_nav: true  # Future feature
+```
+
+**Interface Comparison:**
+
+| Feature | Terminal Style | Modern Style |
+|---------|---------------|--------------|
+| **Aesthetic** | Retro/Hacker | Clean/Professional |
+| **Mobile** | Basic | Fully Responsive |
+| **Navigation** | Simple links | Breadcrumbs + Grid |
+| **Audio Sync** | Basic player | Timeline sync |
+| **Generation** | Auto during transcription | Manual post-process |
+| **Customization** | Contact info | Full responsive |
 
 # Multi-Pass Transcription (for difficult audio)
 multi_pass:
