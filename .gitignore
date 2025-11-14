@@ -1,0 +1,140 @@
+# Stenografen .gitignore
+
+# Generated Document Files (user outputs - not for version control)
+*.docx
+*.doc
+
+# Summary text exports for HTML (generated from .docx)
+*.summary.txt
+
+# Keep markdown files (documentation)
+# *.md files are INCLUDED by default
+
+# Audio Files (too large for git)
+*.mp3
+*.wav
+*.m4a
+*.flac
+*.ogg
+*.opus
+*.webm
+*.aac
+
+# Transcription Output Files (generated content)
+*.txt
+*.srt
+*.vtt
+*.json
+
+# HTML Output (generated from templates)
+*.html
+!template*.html  # Keep template files
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+venv/
+.venv/
+ENV/
+env/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Ollama and AI Models (too large)
+models/
+*.gguf
+*.bin
+
+# Temporary Processing Files
+temp/
+tmp/
+cache/
+*.cache
+processed/
+staging/
+
+# Log Files
+*.log
+logs/
+
+# Configuration with Secrets
+.env
+config.yaml
+secrets.yaml
+
+# Backup Files
+*.backup
+*.bak
+*~
+
+# Archives
+*.zip
+*.tar.gz
+*.rar
+
+# System Files
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# Input/Output Folders - BLOCK REAL DATA
+# Input folder contains real client data - DO NOT PUSH
+input/
+!input/.gitkeep
+
+# Output folders contain generated content with potential data leaks
+output/
+!output/.gitkeep
+
+# Folder index files may contain hardcoded paths/data
+*folder_index*.html
+*folder_index*.json
+*folder_index*.txt
+
+# Keep folder structure but ignore contents
+# Use .gitkeep files to preserve empty folder structure
+
+# Testing
+test_output/
+test_files/
+*.test.py
+
+# Dependencies downloaded at runtime
+demucs_models/
+deepfilternet_models/
+
+# Jupyter Notebooks (if you add them)
+.ipynb_checkpoints/
+
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
+
+# Package files
+*.whl

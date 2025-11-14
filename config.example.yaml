@@ -1,7 +1,9 @@
 # Transcription Configuration
+# Copy this to config.yaml and customize for your needs
+
 folders:
   input: "./input"
-  output: ""  # Leave empty to output in same folder as source file
+  output: "./staging"  # Leave empty to output in same folder as source file
 
 # Output Configuration
 output:
@@ -18,15 +20,15 @@ output:
 
 # Contact info for HTML footer
 contact:
-  name: "Anders Iversen"
-  phone: "+47 97 41 75 26"
-  github: "andersrealdad"
+  name: "Your Name"
+  phone: "+XX XX XX XX XX"
+  github: "yourusername"
 
 # Faster Whisper Settings
 whisper:
   model_size: "large-v3"  # Options: tiny, base, small, medium, large-v2, large-v3
-  device: "cuda"  # Use GPU (RTX 3080)
-  compute_type: "float16"  # Options: float16, int8 (float16 recommended for RTX 3080)
+  device: "cuda"  # Use GPU (RTX 3080) or "cpu" for CPU-only
+  compute_type: "float16"  # Options: float16, int8 (float16 recommended for GPU)
   language: null  # Set to null for auto-detection, or specify: "en", "no", "es", "fr", etc.
   beam_size: 5  # Higher = more accurate but slower (1-10)
   vad_filter: true  # Voice Activity Detection - removes silence
@@ -39,10 +41,10 @@ whisper:
 audio:
   # Supported formats
   formats: ["mp3", "wav", "m4a", "flac", "ogg", "opus", "webm", "aac"]
-  
+
   # Audio enhancement pipeline (processed in order)
   enhance: true
-  
+
   # AI-based denoising (more powerful than FFmpeg filters)
   ai_denoise:
     enabled: true
@@ -56,7 +58,7 @@ audio:
     # DeepFilterNet options (NVIDIA-style noise suppression)
     deepfilternet:
       attenuation_limit: 100  # dB reduction (6-100, higher = more aggressive)
-  
+
   # Standard FFmpeg enhancement filters (applied after AI denoising)
   enhancement_filters:
     # Noise reduction (0.0-1.0, higher = more aggressive)
@@ -85,7 +87,7 @@ ollama:
   # Ollama API endpoint
   api_url: "http://localhost:11434"
   # Model to use for summarization (will list available models if not found)
-  model: "qwen2.5:7b" # Popular options: llama3.2, mistral, gemma2, qwen2.5
+  model: "llama3.2" # Popular options: llama3.2, mistral, gemma2, qwen2.5
   # Generate markdown summary
   generate_summary: true
   # Summary settings
@@ -97,8 +99,8 @@ ollama:
     # Include key topics/themes
     extract_topics: true
     # Dual-language summary generation
-    dual_language: true
-    languages: ["no", "en"]
+    dual_language: false
+    languages: ["no"]  # Languages for summaries: "en", "no", etc.
   # Process in separate step (won't block transcription if Ollama is busy)
   async_processing: true
 
@@ -110,14 +112,14 @@ ocr:
   # OCR engine: "tesseract" (recommended)
   engine: "tesseract"
   # Language for OCR (can be multiple: "eng+nor" for both English and Norwegian)
-  language: "eng+nor"  # eng, nor, deu, fra, spa, etc.
+  language: "nor"  # eng, nor, deu, fra, spa, etc.
   # DPI for PDF rendering (higher = better quality, slower)
   dpi: 300
 
 # Processing Options
 processing:
   # Skip files if output already exists
-  skip_existing: true
+  skip_existing: false
   # Recursive folder search (handles nested folders!)
   recursive: true
   # Number of parallel OCR tasks (transcription always uses 1 GPU task at a time)
@@ -130,16 +132,16 @@ html_generation:
   enabled: true
   auto_generate: true        # Generate during transcription
   include_audio_player: true # Audio controls on individual pages
+  theme: "modern"            # Options: "nostalgia" (green/black hacker) or "modern" (clean professional)
 
-# Modern Navigation System
-# Run separately after transcription: python generate_index.py
-# Or integrate into processing (future feature):
-# processing:
-#   generate_modern_nav: true
+# Theme Comparison:
+# - nostalgia: Black background, green terminal text, ASCII art logo, hacker aesthetic
+# - modern: Clean gradients, professional cards, smooth animations, client-friendly
 
-# Interface Comparison:
-# Terminal Style: Retro/Hacker aesthetic, basic mobile, simple links, basic player, auto-generation
-# Modern Style: Clean/Professional, fully responsive, breadcrumbs + grid, timeline sync, manual post-process
+# Usage:
+# Generate HTML: python generate_index.py
+# Override theme: python generate_index.py --theme nostalgia
+# Override theme: python generate_index.py --theme modern
 
 # Multi-Pass Transcription (for difficult audio)
 multi_pass:
@@ -153,11 +155,11 @@ multi_pass:
   # Confidence threshold for merging (0.0-1.0)
   merge_threshold: 0.7
 
-# Summary Regeneration (for summary_only.py)
+# Summary Regeneration (for regenerate_summaries.py)
 summary_regeneration:
   enabled: true
   # Languages to generate summaries in
-  languages: ["no", "en"]  # Original + English
+  languages: ["no"]  # Languages for regeneration: "en", "no", etc.
   # Force regeneration even if summaries exist
   force: false
   # Use same Ollama settings as main transcription
