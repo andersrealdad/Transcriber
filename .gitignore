@@ -56,7 +56,15 @@ venv/
 .venv/
 ENV/
 env/
-Integration.md, 
+
+# AI Development Tools
+.aider.chat.history.md
+.aider.input.history
+.aider.tags.cache.v4/
+.aider*/
+.claude/
+.requirements_installed
+Integration.md
 SANITIZATION_REPORT.md
 
 # IDEs

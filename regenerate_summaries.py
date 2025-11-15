@@ -113,43 +113,81 @@ class SummaryRegenerator:
         if force:
             return False
         
-        if lang_code == "primary":
-            summary_path = output_path.with_suffix('.md')
+        if lang_code in ("no", "primary"):
+            summary_path = output_path.with_suffix('.docx')
         else:
             # FIX: Construct path correctly
-            summary_path = output_path.parent / f"{output_path.stem}_{lang_code}.md"
+            summary_path = output_path.parent / f"{output_path.stem}_{lang_code}.docx"
         
         return summary_path.exists()
 
-    def generate_summary_for_language(self, transcription_text: str, output_path: Path, 
-                                    lang_code: str, detected_lang: str = "unknown") -> bool:
-        """Generate summary in specified language"""
-        try:
-            # Determine language instruction
+def generate_summary_for_language(self, transcription_text: str, output_path: Path,
+                                  lang_code: str, detected_lang: str = "unknown") -> bool:
+    """Generate summary in specified language"""
+    try:
+        max_length = self.config["ollama"]["summary"]["max_length"]
+        style = self.config["ollama"]["summary"]["style"]
+        extract_topics = self.config["ollama"]["summary"]["extract_topics"]
+
+        system_prompt = ""
+        prompt_prefix = ""
+
+        if lang_code == "no":
+            lang_instruction = "på norsk (bokmål)"
+            lang_name = "Norwegian"
+
+            system_prompt = (
+                "Du er en norsk AI-assistent. Du må ALLTID svare på norsk.\n"
+                "VIKTIG: Hele sammendraget skal skrives på norsk. Ikke bruk engelsk."
+            )
+
+            prompt_prefix = (
+                "VIKTIG: Skriv hele sammendraget på NORSK (bokmål). "
+                "Ikke bruk engelsk.\n\n"
+            )
+        elif lang_code == "en":
+            lang_instruction = "in English"
+            lang_name = "English"
+            system_prompt = "You are an English-speaking AI assistant. Write only in English."
+        else:
+            lang_instruction = f"in {lang_code.upper()}"
+            lang_name = lang_code.upper()
+
+        if style == "concise":
             if lang_code == "no":
-                lang_instruction = "in Norwegian (Bokmål)"
-                lang_name = "Norwegian"
-            elif lang_code == "en":
-                lang_instruction = "in English"
-                lang_name = "English"
+                style_instruction = "Skriv et kort sammendrag på norsk (2-3 setninger)"
             else:
-                lang_instruction = f"in {lang_code.upper()}"
-                lang_name = lang_code.upper()
-            
-            # Build prompt using same logic as transcribe.py
-            max_length = self.config['ollama']['summary']['max_length']
-            style = self.config['ollama']['summary']['style']
-            extract_topics = self.config['ollama']['summary']['extract_topics']
-            
-            # Style instruction
-            if style == "concise":
                 style_instruction = "Write a concise summary (2-3 sentences)"
-            elif style == "bullet_points":
+        elif style == "bullet_points":
+            if lang_code == "no":
+                style_instruction = "Skriv et sammendrag på norsk som punktliste med viktige punkter"
+            else:
                 style_instruction = "Write a summary as bullet points highlighting key information"
-            else:  # detailed
-                style_instruction = "Write a detailed summary covering all main points and key information"
-            
-            prompt = f"""{style_instruction} {lang_instruction}.
+        else:
+            if lang_code == "no":
+                style_instruction = (
+                    "Skriv et detaljert sammendrag på norsk som dekker alle "
+                    "hovedpunkter og viktig informasjon"
+                )
+            else:
+                style_instruction = (
+                    "Write a detailed summary covering all main points and key information"
+                )
+
+        if lang_code == "no":
+            prompt = f"""{system_prompt}
+
+{prompt_prefix}{style_instruction} {lang_instruction}.
+
+Transkripsjon (oppdaget språk: {detected_lang.upper()}):
+
+{transcription_text}
+
+Sammendrag på norsk:"""
+        else:
+            prompt = f"""{system_prompt}
+
+{style_instruction} {lang_instruction}.
 
 Transcription (detected language: {detected_lang.upper()}):
 
@@ -157,57 +195,110 @@ Transcription (detected language: {detected_lang.upper()}):
 
 Summary:"""
 
-            if extract_topics:
-                prompt += f"\n\n[After the summary, list 3-5 key topics/themes in {lang_name}]"
-            
-            # Call Ollama API
-            api_url = self.config['ollama']['api_url']
-            model = self.config['ollama']['model']
-            
-            response = requests.post(
-                f"{api_url}/api/generate",
-                json={
-                    "model": model,
-                    "prompt": prompt,
-                    "stream": False,
-                    "options": {
-                        "temperature": 0.7,
-                        "num_predict": max_length * 2
-                    }
-                },
-                timeout=120
-            )
-            
-            if response.status_code == 200:
-                summary_text = response.json()['response']
-                
-                # FIX: Determine output filename correctly
-                if lang_code == "primary":
-                    md_path = output_path.with_suffix('.md')
-                else:
-                    # Construct path with language code before extension
-                    md_path = output_path.parent / f"{output_path.stem}_{lang_code}.md"
-                
-                # Save summary
-                with open(md_path, 'w', encoding='utf-8') as f:
-                    f.write(f"# Summary: {output_path.stem}\n\n")
-                    f.write(f"**Generated by:** {model}\n\n")
-                    f.write(f"**Language:** {lang_name}\n\n")
-                    f.write(f"**Source Language:** {detected_lang.upper()}\n\n")
-                    f.write(f"---\n\n")
-                    f.write(summary_text.strip())
-                    f.write("\n\n---\n\n")
-                    f.write(f"*Generated from transcription: {output_path.with_suffix('.txt').name}*\n")
-                
-                self.logger.info(f"Generated {lang_name} summary: {md_path}")
-                return True
+        if extract_topics:
+            if lang_code == "no":
+                prompt += "\n\n[Etter sammendraget, list 3-5 nøkkeltemaer på norsk]"
             else:
-                self.logger.error(f"Ollama API error for {lang_name}: {response.status_code}")
-                return False
-                
-        except Exception as e:
-            self.logger.error(f"Summary generation failed for {lang_name}: {e}")
+                prompt += f"\n\n[After the summary, list 3-5 key topics/themes in {lang_name}]"
+
+        api_url = self.config["ollama"]["api_url"]
+        model = self.config["ollama"]["model"]
+
+        response = requests.post(
+            f"{api_url}/api/generate",
+            json={
+                "model": model,
+                "prompt": prompt,
+                "stream": False,
+                "options": {
+                    "temperature": 0.5 if lang_code == "no" else 0.7,
+                    "num_predict": max_length * 2,
+                },
+            },
+            timeout=120,
+        )
+
+        if response.status_code != 200:
+            self.logger.error(f"Ollama API error for {lang_name}: {response.status_code}")
             return False
+
+        summary_text = response.json()["response"]
+
+        if lang_code in ("no", "primary"):
+            docx_path = output_path.with_suffix(".docx")
+            md_path = output_path.with_suffix(".md")
+        else:
+            docx_path = output_path.parent / f"{output_path.stem}_{lang_code}.docx"
+            md_path = output_path.parent / f"{output_path.stem}_{lang_code}.md"
+
+        # skriv en ren tekst eller markdown versjon for HTML
+        try:
+            with open(md_path, "w", encoding="utf-8") as f_md:
+                f_md.write(summary_text.strip())
+            self.logger.info(f"Saved plain summary for HTML: {md_path}")
+        except Exception as e:
+            self.logger.warning(f"Could not write markdown summary: {e}")
+
+        try:
+            from docx import Document
+            from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
+
+            doc = Document()
+
+            title_text = (
+                f"Sammendrag: {output_path.stem}"
+                if lang_code == "no"
+                else f"Summary: {output_path.stem}"
+            )
+            title = doc.add_heading(title_text, 0)
+            title.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+
+            meta = doc.add_paragraph()
+            meta.add_run(f"Generert av: {model}\n").bold = True
+            meta.add_run(f"Språk: {lang_name}\n").bold = True
+            meta.add_run(f"Kildespråk: {detected_lang.upper()}\n").bold = True
+
+            doc.add_paragraph("_" * 50)
+
+            for line in summary_text.strip().split("\n"):
+                line = line.strip()
+                if not line:
+                    continue
+
+                if line.startswith("#"):
+                    heading_text = line.lstrip("#").strip()
+                    doc.add_heading(heading_text, level=2)
+                elif line.isupper() and len(line) < 50:
+                    doc.add_heading(line, level=2)
+                elif line.startswith("**") and line.endswith("**"):
+                    p = doc.add_paragraph()
+                    p.add_run(line.strip("*")).bold = True
+                elif line.startswith("- ") or line.startswith("* "):
+                    doc.add_paragraph(line[2:], style="List Bullet")
+                elif line[0].isdigit() and ". " in line[:4]:
+                    doc.add_paragraph(line.split(". ", 1)[1], style="List Number")
+                else:
+                    doc.add_paragraph(line)
+
+            doc.add_paragraph("_" * 50)
+            footer = doc.add_paragraph()
+            if lang_code == "no":
+                footer_text = f"Generert fra transkripsjon: {output_path.with_suffix('.txt').name}"
+            else:
+                footer_text = f"Generated from transcription: {output_path.with_suffix('.txt').name}"
+            footer.add_run(footer_text).italic = True
+
+            doc.save(str(docx_path))
+            self.logger.info(f"Generated {lang_name} summary: {docx_path}")
+            return True
+
+        except ImportError:
+            self.logger.warning("python-docx not available, using only markdown")
+            return True
+
+    except Exception as e:
+        self.logger.error(f"Summary generation failed for {lang_code}: {e}")
+        return False
 
     def process_transcription_file(self, txt_file: Path, target_languages: List[str] = None, 
                                  force: bool = False):
